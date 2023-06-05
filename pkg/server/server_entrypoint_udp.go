@@ -37,6 +37,31 @@ func NewUDPEntryPoints(cfg static.EntryPoints) (UDPEntryPoints, error) {
 	return entryPoints, nil
 }
 
+// NewUDPEntryPoints returns all the UDP entry points, keyed by name but ignore errors for dynamic entrypoint.
+func NewUDPEntryPointsIgnoreErr(cfg static.EntryPoints) UDPEntryPoints {
+	entryPoints := make(UDPEntryPoints)
+	logger := log.WithoutContext()
+	for entryPointName, entryPoint := range cfg {
+		protocol, err := entryPoint.GetProtocol()
+		if err != nil {
+			logger.Errorf("error while building entryPoint %s: %w", entryPointName, err)
+			continue
+		}
+
+		if protocol != "udp" {
+			continue
+		}
+
+		ep, err := NewUDPEntryPoint(entryPoint)
+		if err != nil {
+			logger.Errorf("error while building entryPoint %s: %w", entryPointName, err)
+			continue
+		}
+		entryPoints[entryPointName] = ep
+	}
+	return entryPoints
+}
+
 // Start commences the listening for all the entry points.
 func (eps UDPEntryPoints) Start() {
 	for entryPointName, ep := range eps {

@@ -110,6 +110,7 @@ func (m *Manager) buildEntryPointHandler(ctx context.Context, configs map[string
 	if err != nil {
 		return nil, err
 	}
+	muxer.Router.NotFoundHandler = NotFoundHandler()
 
 	for routerName, routerConfig := range configs {
 		ctxRouter := log.With(provider.AddInContext(ctx, routerName), log.Str(log.RouterName, routerName))
@@ -207,5 +208,27 @@ func (m *Manager) buildHTTPHandler(ctx context.Context, router *runtime.RouterIn
 
 // BuildDefaultHTTPRouter creates a default HTTP router.
 func BuildDefaultHTTPRouter() http.Handler {
-	return http.NotFoundHandler()
+	return NotFoundHandler()
 }
+
+func Error(w http.ResponseWriter, err string, code int) {
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.WriteHeader(code)
+	fmt.Fprintln(w, err)
+}
+
+const notFoundRes = `
+404 page not found
+
+没有找到对应的转发路由，请检查请求路径和转发规则是否相匹配
+`
+
+// NotFound replies to the request with an HTTP 404 not found error.
+func NotFound(w http.ResponseWriter, r *http.Request) {
+	Error(w, notFoundRes, http.StatusNotFound)
+}
+
+// NotFoundHandler returns a simple request handler
+// that replies to each request with a “404 page not found” reply.
+func NotFoundHandler() http.Handler { return http.HandlerFunc(NotFound) }

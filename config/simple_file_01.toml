@@ -1,0 +1,12 @@
+[http.routers]
+
+  [http.routers."router1"]
+    entryPoints = ["web"]
+    rule = "Path(`/b`)"
+    service = "application-1"
+
+[http.services]
+
+  [http.services.application-1.loadBalancer]
+    [[http.services.application-1.loadBalancer.servers]]
+      url = "https://baidu.com"

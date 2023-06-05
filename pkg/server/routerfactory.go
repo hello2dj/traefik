@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"sync"
 
 	"github.com/traefik/traefik/v2/pkg/config/runtime"
 	"github.com/traefik/traefik/v2/pkg/config/static"
@@ -21,6 +22,7 @@ import (
 
 // RouterFactory the factory of TCP/UDP routers.
 type RouterFactory struct {
+	mu             sync.Mutex
 	entryPointsTCP []string
 	entryPointsUDP []string
 
@@ -95,4 +97,27 @@ func (f *RouterFactory) CreateRouters(rtConf *runtime.Configuration) (map[string
 	rtConf.PopulateUsedBy()
 
 	return routersTCP, routersUDP
+}
+
+func (f *RouterFactory) UpdateEntryPoints(eps static.EntryPoints) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	var entryPointsTCP, entryPointsUDP []string
+	for name, cfg := range eps {
+		protocol, err := cfg.GetProtocol()
+		if err != nil {
+			// Should never happen because Traefik should not start if protocol is invalid.
+			log.WithoutContext().Errorf("Invalid protocol: %v", err)
+		}
+
+		if protocol == "udp" {
+			entryPointsUDP = append(entryPointsUDP, name)
+		} else {
+			entryPointsTCP = append(entryPointsTCP, name)
+		}
+	}
+
+	f.entryPointsTCP = entryPointsTCP
+	f.entryPointsUDP = entryPointsUDP
 }

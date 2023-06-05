@@ -89,6 +89,32 @@ func NewTCPEntryPoints(entryPointsConfig static.EntryPoints, hostResolverConfig 
 	return serverEntryPointsTCP, nil
 }
 
+// NewTCPEntryPoints creates a new TCPEntryPoints but ignore errors for dynamic entrypoint.
+func NewTCPEntryPointsIgnoreErr(entryPointsConfig static.EntryPoints, hostResolverConfig *types.HostResolverConfig) TCPEntryPoints {
+	serverEntryPointsTCP := make(TCPEntryPoints)
+	logger := log.WithoutContext()
+	for entryPointName, config := range entryPointsConfig {
+		protocol, err := config.GetProtocol()
+		if err != nil {
+			logger.Errorf("error while building entryPoint %s: %w", entryPointName, err)
+			continue
+		}
+
+		if protocol != "tcp" {
+			continue
+		}
+
+		ctx := log.With(context.Background(), log.Str(log.EntryPointName, entryPointName))
+		ep, err := NewTCPEntryPoint(ctx, config, hostResolverConfig)
+		if err != nil {
+			logger.Errorf("error while building entryPoint %s: %w", entryPointName, err)
+			continue
+		}
+		serverEntryPointsTCP[entryPointName] = ep
+	}
+	return serverEntryPointsTCP
+}
+
 // Start the server entry points.
 func (eps TCPEntryPoints) Start() {
 	for entryPointName, serverEntryPoint := range eps {
