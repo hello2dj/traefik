@@ -26,10 +26,13 @@ type EntryPointFactory struct {
 
 func NewEntryPointFactory(routerFactory *RouterFactory, config static.Configuration, tcpEntryPoints TCPEntryPoints, udpEntryPoints UDPEntryPoints) *EntryPointFactory {
 	return &EntryPointFactory{
-		routerFactory:        routerFactory,
-		staticConfiguration:  config,
-		staticEntryPointsTCP: tcpEntryPoints,
-		staticEntryPointsUDP: udpEntryPoints,
+		routerFactory:         routerFactory,
+		staticConfiguration:   config,
+		staticEntryPointsTCP:  tcpEntryPoints,
+		staticEntryPointsUDP:  udpEntryPoints,
+		dynamicEntryPoints:    static.EntryPoints{},
+		dynamicEntryPointsTCP: TCPEntryPoints{},
+		dynamicEntryPointsUDP: UDPEntryPoints{},
 	}
 }
 
@@ -39,18 +42,22 @@ func (ef *EntryPointFactory) BuildEntryPoints(config dynamic.Configuration) {
 	ef.mu.Lock()
 	defer ef.mu.Unlock()
 
+	tcpEntryPointsForNewConf := map[string]*TCPEntryPoint{}
 	for _, rt := range config.HTTP.Routers {
 		for _, e := range rt.EntryPoints {
 			if _, ok := ef.staticEntryPointsTCP[e]; ok {
 				continue
 			}
 			if _, ok := ef.dynamicEntryPointsTCP[e]; ok {
+				tcpEntryPointsForNewConf[e] = ef.dynamicEntryPointsTCP[e]
 				continue
 			}
 			ep, ok := buildEntryPoint(e)
 			if !ok {
 				continue
 			}
+
+			tcpEntryPointsForNewConf[e] = ef.dynamicEntryPointsTCP[e]
 			entryPoints[e] = ep
 		}
 	}
@@ -60,45 +67,52 @@ func (ef *EntryPointFactory) BuildEntryPoints(config dynamic.Configuration) {
 				continue
 			}
 			if _, ok := ef.dynamicEntryPointsTCP[e]; ok {
+				tcpEntryPointsForNewConf[e] = ef.dynamicEntryPointsTCP[e]
 				continue
 			}
 			ep, ok := buildEntryPoint(e)
 			if !ok {
 				continue
 			}
+			tcpEntryPointsForNewConf[e] = ef.dynamicEntryPointsTCP[e]
 			entryPoints[e] = ep
 		}
 	}
 
+	udpEntryPointsForNewConf := map[string]*UDPEntryPoint{}
 	for _, rt := range config.UDP.Routers {
 		for _, e := range rt.EntryPoints {
 			if _, ok := ef.staticEntryPointsUDP[e]; ok {
 				continue
 			}
 			if _, ok := ef.dynamicEntryPointsUDP[e]; ok {
+				udpEntryPointsForNewConf[e] = ef.dynamicEntryPointsUDP[e]
 				continue
 			}
 			ep, ok := buildEntryPoint(e)
 			if !ok {
 				continue
 			}
+			udpEntryPointsForNewConf[e] = ef.dynamicEntryPointsUDP[e]
 			entryPoints[e] = ep
 		}
 	}
 
 	deletedEntryPointsTCP := TCPEntryPoints{}
 	for name, ep := range ef.dynamicEntryPointsTCP {
-		if _, ok := entryPoints[name]; !ok {
+		if _, ok := tcpEntryPointsForNewConf[name]; !ok {
 			deletedEntryPointsTCP[name] = ep
 			delete(ef.dynamicEntryPointsTCP, name)
+			delete(ef.dynamicEntryPoints, name)
 		}
 	}
 
 	deletedEntryPointsUDP := UDPEntryPoints{}
 	for name, ep := range ef.dynamicEntryPointsUDP {
-		if _, ok := entryPoints[name]; !ok {
+		if _, ok := udpEntryPointsForNewConf[name]; !ok {
 			deletedEntryPointsUDP[name] = ep
 			delete(ef.dynamicEntryPointsUDP, name)
+			delete(ef.dynamicEntryPoints, name)
 		}
 	}
 
@@ -106,18 +120,35 @@ func (ef *EntryPointFactory) BuildEntryPoints(config dynamic.Configuration) {
 		e.SetDefaults()
 	}
 
-	ef.dynamicEntryPoints = entryPoints
+	if len(entryPoints) > 0 {
+		for n, e := range entryPoints {
+			ef.dynamicEntryPoints[n] = e
+		}
+	}
+
 	newEntryPointsTCP := NewTCPEntryPointsIgnoreErr(entryPoints, ef.staticConfiguration.HostResolver)
-	ef.dynamicEntryPointsTCP = newEntryPointsTCP
+	if len(newEntryPointsTCP) > 0 {
+		newEntryPointsTCP.Start()
+		for n, e := range newEntryPointsTCP {
+			ef.dynamicEntryPointsTCP[n] = e
+		}
+	}
 
 	newEntryPointsUDP := NewUDPEntryPointsIgnoreErr(entryPoints)
-	ef.dynamicEntryPointsUDP = newEntryPointsUDP
+	if len(newEntryPointsUDP) > 0 {
+		newEntryPointsUDP.Start()
+		for n, e := range newEntryPointsUDP {
+			ef.dynamicEntryPointsUDP[n] = e
+		}
+	}
 
-	deletedEntryPointsTCP.Stop()
-	deletedEntryPointsUDP.Stop()
+	if len(deletedEntryPointsTCP) > 0 {
+		deletedEntryPointsTCP.Stop()
+	}
 
-	newEntryPointsTCP.Start()
-	newEntryPointsUDP.Start()
+	if len(deletedEntryPointsUDP) > 0 {
+		deletedEntryPointsUDP.Stop()
+	}
 
 	ef.updateRouterFactory()
 }
