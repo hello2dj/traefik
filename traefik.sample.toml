@@ -23,10 +23,10 @@
 # Default:
 [entryPoints]
   [entryPoints.web]
-    address = ":80"
+    address = ":9999"
 
   [entryPoints.websecure]
-    address = ":443"
+    address = ":8889"
 
 ################################################################
 # Traefik logs configuration
@@ -44,7 +44,7 @@
   # Optional
   # Default: "ERROR"
   #
-  # level = "DEBUG"
+  level = "INFO"
 
   # Sets the filepath for the traefik log. If not specified, stdout will be used.
   # Intermediate directories are created if necessary.
@@ -71,7 +71,7 @@
 #
 # Optional
 #
-# [accessLog]
+[accessLog]
 
   # Sets the file path for the access log. If not specified, stdout will be used.
   # Intermediate directories are created if necessary.
@@ -100,14 +100,14 @@
   # Optional
   # Default: false
   #
-  # insecure = true
+  insecure = true
 
   # Enabled Dashboard
   #
   # Optional
   # Default: true
   #
-  # dashboard = false
+  dashboard = true
 
 ################################################################
 # Ping configuration
@@ -128,7 +128,7 @@
 ################################################################
 
 # Enable Docker configuration backend
-[providers.docker]
+# [providers.docker]
 
   # Docker server endpoint. Can be a tcp or a unix socket endpoint.
   #
@@ -150,3 +150,9 @@
   # Default: true
   #
   # exposedByDefault = false
+# [providers.file]
+#     directory = "./config"
+#     watch = true
+
+[providers.kubernetescrd]
+    allowCrossNamespace=true

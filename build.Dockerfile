@@ -1,5 +1,9 @@
 FROM golang:1.20-alpine
 
+ENV http_proxy=http://192.168.116.196:7890
+ENV https_proxy=http://192.168.116.196:7890
+ENV no_proxy=$no_proxy
+
 RUN apk --no-cache --no-progress add git mercurial bash gcc musl-dev curl tar ca-certificates tzdata \
     && update-ca-certificates \
     && rm -rf /var/cache/apk/*
@@ -32,6 +36,10 @@ RUN git config --global --add safe.directory "${HOST_PWD}"
 # Download go modules
 COPY go.mod .
 COPY go.sum .
-RUN GO111MODULE=on GOPROXY=https://proxy.golang.org go mod download
+RUN GO111MODULE=on GOPROXY=https://goproxy.cn,direct go mod download
+
+
+ENV http_proxy=
+ENV https_proxy=
 
 COPY . /go/src/github.com/traefik/traefik

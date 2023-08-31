@@ -16,7 +16,11 @@ import (
 
 // Server is the reverse-proxy/load-balancer engine.
 type Server struct {
-	watcher        *ConfigurationWatcher
+	watcher *ConfigurationWatcher
+
+	dynamicTCPEntryPoints TCPEntryPoints
+	dynamicUDPEntryPoints UDPEntryPoints
+
 	tcpEntryPoints TCPEntryPoints
 	udpEntryPoints UDPEntryPoints
 	chainBuilder   *middleware.ChainBuilder

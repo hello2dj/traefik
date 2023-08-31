@@ -262,6 +262,7 @@ func setupServer(staticConfiguration *static.Configuration) (*server.Server, err
 
 	chainBuilder := middleware.NewChainBuilder(metricsRegistry, accessLog, tracer)
 	routerFactory := server.NewRouterFactory(*staticConfiguration, managerFactory, tlsManager, chainBuilder, pluginBuilder, metricsRegistry)
+	entryPointFactory := server.NewEntryPointFactory(routerFactory, *staticConfiguration, serverEntryPointsTCP, serverEntryPointsUDP)
 
 	// Watcher
 
@@ -294,8 +295,11 @@ func setupServer(staticConfiguration *static.Configuration) (*server.Server, err
 		roundTripperManager.Update(conf.HTTP.ServersTransports)
 	})
 
+	// Build entrypoints
+	watcher.AddListener(entryPointFactory.BuildEntryPoints)
+
 	// Switch router
-	watcher.AddListener(switchRouter(routerFactory, serverEntryPointsTCP, serverEntryPointsUDP))
+	watcher.AddListener(switchRouter(routerFactory, entryPointFactory.ServerEntryPointsTCP, entryPointFactory.ServerEntryPointsUDP))
 
 	// Metrics
 	if metricsRegistry.IsEpEnabled() || metricsRegistry.IsSvcEnabled() {
@@ -371,14 +375,14 @@ func getDefaultsEntrypoints(staticConfiguration *static.Configuration) []string 
 	return defaultEntryPoints
 }
 
-func switchRouter(routerFactory *server.RouterFactory, serverEntryPointsTCP server.TCPEntryPoints, serverEntryPointsUDP server.UDPEntryPoints) func(conf dynamic.Configuration) {
+func switchRouter(routerFactory *server.RouterFactory, serverEntryPointsTCPFn func() server.TCPEntryPoints, serverEntryPointsUDPFn func() server.UDPEntryPoints) func(conf dynamic.Configuration) {
 	return func(conf dynamic.Configuration) {
 		rtConf := runtime.NewConfig(conf)
 
 		routers, udpRouters := routerFactory.CreateRouters(rtConf)
 
-		serverEntryPointsTCP.Switch(routers)
-		serverEntryPointsUDP.Switch(udpRouters)
+		serverEntryPointsTCPFn().Switch(routers)
+		serverEntryPointsUDPFn().Switch(udpRouters)
 	}
 }
 
