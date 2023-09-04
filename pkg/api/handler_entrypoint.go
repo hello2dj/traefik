@@ -20,11 +20,20 @@ type entryPointRepresentation struct {
 func (h Handler) getEntryPoints(rw http.ResponseWriter, request *http.Request) {
 	results := make([]entryPointRepresentation, 0, len(h.staticConfig.EntryPoints))
 
-	for name, ep := range h.staticConfig.EntryPoints {
-		results = append(results, entryPointRepresentation{
-			EntryPoint: ep,
-			Name:       name,
-		})
+	if h.entryPoints != nil {
+		for name, ep := range h.entryPoints.EntryPoints() {
+			results = append(results, entryPointRepresentation{
+				EntryPoint: ep,
+				Name:       name,
+			})
+		}
+	} else {
+		for name, ep := range h.staticConfig.EntryPoints {
+			results = append(results, entryPointRepresentation{
+				EntryPoint: ep,
+				Name:       name,
+			})
+		}
 	}
 
 	sort.Slice(results, func(i, j int) bool {
@@ -54,6 +63,9 @@ func (h Handler) getEntryPoint(rw http.ResponseWriter, request *http.Request) {
 	rw.Header().Set("Content-Type", "application/json")
 
 	ep, ok := h.staticConfig.EntryPoints[entryPointID]
+	if h.entryPoints != nil {
+		ep, ok = h.entryPoints.EntryPoints()[entryPointID]
+	}
 	if !ok {
 		writeError(rw, fmt.Sprintf("entry point not found: %s", entryPointID), http.StatusNotFound)
 		return

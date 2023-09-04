@@ -10,6 +10,7 @@ import (
 	"github.com/traefik/traefik/v2/pkg/config/static"
 	"github.com/traefik/traefik/v2/pkg/metrics"
 	"github.com/traefik/traefik/v2/pkg/safe"
+	"github.com/traefik/traefik/v2/pkg/server/types"
 )
 
 // ManagerFactory a factory of service manager.
@@ -37,21 +38,6 @@ func NewManagerFactory(staticConfiguration static.Configuration, routinesPool *s
 		acmeHTTPHandler:     acmeHTTPHandler,
 	}
 
-	if staticConfiguration.API != nil {
-		apiRouterBuilder := api.NewBuilder(staticConfiguration)
-
-		if staticConfiguration.API.Dashboard {
-			factory.dashboardHandler = dashboard.Handler{}
-			factory.api = func(configuration *runtime.Configuration) http.Handler {
-				router := apiRouterBuilder(configuration).(*mux.Router)
-				dashboard.Append(router, nil)
-				return router
-			}
-		} else {
-			factory.api = apiRouterBuilder
-		}
-	}
-
 	if staticConfiguration.Providers != nil && staticConfiguration.Providers.Rest != nil {
 		factory.restHandler = staticConfiguration.Providers.Rest.CreateRouter()
 	}
@@ -68,6 +54,23 @@ func NewManagerFactory(staticConfiguration static.Configuration, routinesPool *s
 	}
 
 	return factory
+}
+
+func (f *ManagerFactory) SetApiHandler(staticConfiguration static.Configuration, entryPoints types.EntrypointsGetter) {
+	if staticConfiguration.API != nil {
+		apiRouterBuilder := api.NewBuilder(staticConfiguration, entryPoints)
+
+		if staticConfiguration.API.Dashboard {
+			f.dashboardHandler = dashboard.Handler{}
+			f.api = func(configuration *runtime.Configuration) http.Handler {
+				router := apiRouterBuilder(configuration).(*mux.Router)
+				dashboard.Append(router, nil)
+				return router
+			}
+		} else {
+			f.api = apiRouterBuilder
+		}
+	}
 }
 
 // Build creates a service manager.

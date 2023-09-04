@@ -264,6 +264,9 @@ func setupServer(staticConfiguration *static.Configuration) (*server.Server, err
 	routerFactory := server.NewRouterFactory(*staticConfiguration, managerFactory, tlsManager, chainBuilder, pluginBuilder, metricsRegistry)
 	entryPointFactory := server.NewEntryPointFactory(routerFactory, *staticConfiguration, serverEntryPointsTCP, serverEntryPointsUDP)
 
+	// Set api handler
+	managerFactory.SetApiHandler(*staticConfiguration, entryPointFactory)
+
 	// Watcher
 
 	watcher := server.NewConfigurationWatcher(

@@ -11,6 +11,7 @@ import (
 	"github.com/traefik/traefik/v2/pkg/config/runtime"
 	"github.com/traefik/traefik/v2/pkg/config/static"
 	"github.com/traefik/traefik/v2/pkg/log"
+	"github.com/traefik/traefik/v2/pkg/server/types"
 	"github.com/traefik/traefik/v2/pkg/version"
 )
 
@@ -48,21 +49,22 @@ type RunTimeRepresentation struct {
 // Handler serves the configuration and status of Traefik on API endpoints.
 type Handler struct {
 	staticConfig static.Configuration
+	entryPoints  types.EntrypointsGetter
 
 	// runtimeConfiguration is the data set used to create all the data representations exposed by the API.
 	runtimeConfiguration *runtime.Configuration
 }
 
 // NewBuilder returns a http.Handler builder based on runtime.Configuration.
-func NewBuilder(staticConfig static.Configuration) func(*runtime.Configuration) http.Handler {
+func NewBuilder(staticConfig static.Configuration, entryPoints types.EntrypointsGetter) func(*runtime.Configuration) http.Handler {
 	return func(configuration *runtime.Configuration) http.Handler {
-		return New(staticConfig, configuration).createRouter()
+		return New(staticConfig, entryPoints, configuration).createRouter()
 	}
 }
 
 // New returns a Handler defined by staticConfig, and if provided, by runtimeConfig.
 // It finishes populating the information provided in the runtimeConfig.
-func New(staticConfig static.Configuration, runtimeConfig *runtime.Configuration) *Handler {
+func New(staticConfig static.Configuration, entryPoints types.EntrypointsGetter, runtimeConfig *runtime.Configuration) *Handler {
 	rConfig := runtimeConfig
 	if rConfig == nil {
 		rConfig = &runtime.Configuration{}
@@ -71,6 +73,7 @@ func New(staticConfig static.Configuration, runtimeConfig *runtime.Configuration
 	return &Handler{
 		runtimeConfiguration: rConfig,
 		staticConfig:         staticConfig,
+		entryPoints:          entryPoints,
 	}
 }
 

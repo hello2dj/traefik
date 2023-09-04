@@ -24,7 +24,12 @@ type EntryPointFactory struct {
 	dynamicEntryPointsUDP UDPEntryPoints
 }
 
-func NewEntryPointFactory(routerFactory *RouterFactory, config static.Configuration, tcpEntryPoints TCPEntryPoints, udpEntryPoints UDPEntryPoints) *EntryPointFactory {
+func NewEntryPointFactory(
+	routerFactory *RouterFactory,
+	config static.Configuration,
+	tcpEntryPoints TCPEntryPoints,
+	udpEntryPoints UDPEntryPoints,
+) *EntryPointFactory {
 	return &EntryPointFactory{
 		routerFactory:         routerFactory,
 		staticConfiguration:   config,
@@ -154,6 +159,9 @@ func (ef *EntryPointFactory) BuildEntryPoints(config dynamic.Configuration) {
 }
 
 func (ef *EntryPointFactory) ServerEntryPointsTCP() TCPEntryPoints {
+	ef.mu.Lock()
+	defer ef.mu.Unlock()
+
 	eps := make(TCPEntryPoints, len(ef.staticEntryPointsTCP)+len(ef.dynamicEntryPointsTCP))
 	for key, ep := range ef.staticEntryPointsTCP {
 		eps[key] = ep
@@ -162,10 +170,12 @@ func (ef *EntryPointFactory) ServerEntryPointsTCP() TCPEntryPoints {
 		eps[key] = ep
 	}
 	return eps
-
 }
 
 func (ef *EntryPointFactory) ServerEntryPointsUDP() UDPEntryPoints {
+	ef.mu.Lock()
+	defer ef.mu.Unlock()
+
 	eps := make(UDPEntryPoints, len(ef.staticEntryPointsUDP)+len(ef.dynamicEntryPointsUDP))
 	for key, ep := range ef.staticEntryPointsUDP {
 		eps[key] = ep
@@ -174,6 +184,20 @@ func (ef *EntryPointFactory) ServerEntryPointsUDP() UDPEntryPoints {
 		eps[key] = ep
 	}
 	return eps
+}
+
+func (ef *EntryPointFactory) EntryPoints() static.EntryPoints {
+	ef.mu.Lock()
+	defer ef.mu.Unlock()
+
+	results := make(static.EntryPoints, len(ef.staticConfiguration.EntryPoints)+len(ef.dynamicEntryPoints))
+	for k, v := range ef.staticConfiguration.EntryPoints {
+		results[k] = v
+	}
+	for k, v := range ef.dynamicEntryPoints {
+		results[k] = v
+	}
+	return results
 }
 
 func (ef *EntryPointFactory) updateRouterFactory() {

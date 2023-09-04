@@ -136,7 +136,7 @@ func TestHandler_RawData(t *testing.T) {
 			rtConf := &test.conf
 
 			rtConf.PopulateUsedBy()
-			handler := New(static.Configuration{API: &static.API{}, Global: &static.Global{}}, rtConf)
+			handler := New(static.Configuration{API: &static.API{}, Global: &static.Global{}}, nil, rtConf)
 			server := httptest.NewServer(handler.createRouter())
 
 			resp, err := http.DefaultClient.Get(server.URL + test.path)
@@ -256,7 +256,7 @@ func TestHandler_GetMiddleware(t *testing.T) {
 		t.Run(test.desc, func(t *testing.T) {
 			t.Parallel()
 
-			handler := New(static.Configuration{API: &static.API{}, Global: &static.Global{}}, &test.conf)
+			handler := New(static.Configuration{API: &static.API{}, Global: &static.Global{}}, nil, &test.conf)
 			server := httptest.NewServer(handler.createRouter())
 
 			resp, err := http.DefaultClient.Get(server.URL + "/api/http/middlewares/" + test.middlewareName)

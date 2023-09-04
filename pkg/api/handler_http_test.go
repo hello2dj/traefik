@@ -859,7 +859,7 @@ func TestHandler_HTTP(t *testing.T) {
 			rtConf.GetRoutersByEntryPoints(context.Background(), []string{"web"}, false)
 			rtConf.GetRoutersByEntryPoints(context.Background(), []string{"web"}, true)
 
-			handler := New(static.Configuration{API: &static.API{}, Global: &static.Global{}}, rtConf)
+			handler := New(static.Configuration{API: &static.API{}, Global: &static.Global{}}, nil, rtConf)
 			server := httptest.NewServer(handler.createRouter())
 
 			resp, err := http.DefaultClient.Get(server.URL + test.path)
