@@ -1,0 +1,11 @@
+http:
+  routers:
+    my-router:
+      rule: 'PathPrefix(`{id:/gateway-api}/{id:.*}/{id:\d+}`)'
+      # declared elsewhere
+      service: service-foo
+  services:
+    service-foo:
+      loadBalancer:
+        servers:
+        - url: "http://harbor.newcapec.cn/"

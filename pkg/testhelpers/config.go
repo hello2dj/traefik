@@ -39,6 +39,12 @@ func WithRouter(routerName string, opts ...func(*dynamic.Router)) func(*dynamic.
 	}
 }
 
+func WithEntryPointTransport(entryPointTransport string) func(*dynamic.Router) {
+	return func(r *dynamic.Router) {
+		r.EntryPointTransport = entryPointTransport
+	}
+}
+
 // WithRouterMiddlewares is a helper to create a configuration.
 func WithRouterMiddlewares(middlewaresName ...string) func(*dynamic.Router) {
 	return func(r *dynamic.Router) {

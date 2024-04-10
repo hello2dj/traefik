@@ -23,13 +23,13 @@
 # Default:
 [entryPoints]
   [entryPoints.traefik]
-    address = ":9991"
+    address = ":40000"
 
   [entryPoints.web]
-    address = ":9999"
+    address = ":30000"
 
   [entryPoints.websecure]
-    address = ":8889"
+    address = ":40001"
 
 ################################################################
 # Traefik logs configuration
@@ -154,7 +154,7 @@
   #
   # exposedByDefault = false
 # [providers.file]
-#     directory = "./config"
+#     filename = "./config.yaml"
 #     watch = true
 
 [providers.kubernetescrd]

@@ -110,11 +110,12 @@ func (p *Provider) loadIngressRouteConfiguration(ctx context.Context, client Cli
 			}
 
 			r := &dynamic.Router{
-				Middlewares: mds,
-				Priority:    route.Priority,
-				EntryPoints: ingressRoute.Spec.EntryPoints,
-				Rule:        route.Match,
-				Service:     serviceName,
+				Middlewares:         mds,
+				Priority:            route.Priority,
+				EntryPoints:         ingressRoute.Spec.EntryPoints,
+				Rule:                route.Match,
+				Service:             serviceName,
+				EntryPointTransport: ingressRoute.Annotations["qy-entrypoint-transport"],
 			}
 
 			if ingressRoute.Spec.TLS != nil {

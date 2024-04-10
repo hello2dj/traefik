@@ -1,13 +1,17 @@
 package server
 
 import (
+	"encoding/json"
 	"fmt"
+	"net/http"
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/traefik/traefik/v2/pkg/config/dynamic"
 	"github.com/traefik/traefik/v2/pkg/config/static"
+	"github.com/traefik/traefik/v2/pkg/log"
 )
 
 // EntrypointFactory the factory of TCP/UDP routers.
@@ -57,12 +61,11 @@ func (ef *EntryPointFactory) BuildEntryPoints(config dynamic.Configuration) {
 				tcpEntryPointsForNewConf[e] = ef.dynamicEntryPointsTCP[e]
 				continue
 			}
+
 			ep, ok := buildEntryPoint(e)
 			if !ok {
 				continue
 			}
-
-			tcpEntryPointsForNewConf[e] = ef.dynamicEntryPointsTCP[e]
 			entryPoints[e] = ep
 		}
 	}
@@ -75,11 +78,11 @@ func (ef *EntryPointFactory) BuildEntryPoints(config dynamic.Configuration) {
 				tcpEntryPointsForNewConf[e] = ef.dynamicEntryPointsTCP[e]
 				continue
 			}
+
 			ep, ok := buildEntryPoint(e)
 			if !ok {
 				continue
 			}
-			tcpEntryPointsForNewConf[e] = ef.dynamicEntryPointsTCP[e]
 			entryPoints[e] = ep
 		}
 	}
@@ -94,11 +97,11 @@ func (ef *EntryPointFactory) BuildEntryPoints(config dynamic.Configuration) {
 				udpEntryPointsForNewConf[e] = ef.dynamicEntryPointsUDP[e]
 				continue
 			}
+
 			ep, ok := buildEntryPoint(e)
 			if !ok {
 				continue
 			}
-			udpEntryPointsForNewConf[e] = ef.dynamicEntryPointsUDP[e]
 			entryPoints[e] = ep
 		}
 	}
@@ -155,9 +158,28 @@ func (ef *EntryPointFactory) BuildEntryPoints(config dynamic.Configuration) {
 		deletedEntryPointsUDP.Stop()
 	}
 
+	for _, rt := range config.HTTP.Routers {
+		for _, e := range rt.EntryPoints {
+			if _, ok := ef.staticEntryPointsTCP[e]; ok {
+				assignEntryPointTransport(rt, ef.staticEntryPointsTCP[e])
+			}
+			if _, ok := ef.dynamicEntryPointsTCP[e]; ok {
+				assignEntryPointTransport(rt, ef.dynamicEntryPointsTCP[e])
+			}
+
+			if _, ok := ef.dynamicEntryPoints[e]; ok {
+				assignEntryPointTransportForStatic(rt, ef.dynamicEntryPoints[e])
+			}
+			if _, ok := ef.staticConfiguration.EntryPoints[e]; ok {
+				assignEntryPointTransportForStatic(rt, ef.staticConfiguration.EntryPoints[e])
+			}
+		}
+	}
+
 	ef.updateRouterFactory()
 }
 
+// for test.
 func (ef *EntryPointFactory) ServerEntryPointsTCP() TCPEntryPoints {
 	ef.mu.Lock()
 	defer ef.mu.Unlock()
@@ -172,6 +194,7 @@ func (ef *EntryPointFactory) ServerEntryPointsTCP() TCPEntryPoints {
 	return eps
 }
 
+// fot test.
 func (ef *EntryPointFactory) ServerEntryPointsUDP() UDPEntryPoints {
 	ef.mu.Lock()
 	defer ef.mu.Unlock()
@@ -210,6 +233,63 @@ func (ef *EntryPointFactory) updateRouterFactory() {
 	}
 
 	ef.routerFactory.UpdateEntryPoints(eps)
+}
+
+func assignEntryPointTransport(r *dynamic.Router, e *TCPEntryPoint) {
+	t := parseEntryPoint(r)
+	if t == nil {
+		e.transportConfiguration.SetDefaults()
+		return
+	}
+	if httpServer, ok := e.httpServer.Server.(*http.Server); ok {
+		httpServer.ReadTimeout = time.Duration(t.RespondingTimeouts.ReadTimeout)
+		httpServer.WriteTimeout = time.Duration(t.RespondingTimeouts.WriteTimeout)
+		httpServer.IdleTimeout = time.Duration(t.RespondingTimeouts.IdleTimeout)
+	}
+	if httpServer, ok := e.httpsServer.Server.(*http.Server); ok {
+		httpServer.ReadTimeout = time.Duration(t.RespondingTimeouts.ReadTimeout)
+		httpServer.WriteTimeout = time.Duration(t.RespondingTimeouts.WriteTimeout)
+		httpServer.IdleTimeout = time.Duration(t.RespondingTimeouts.IdleTimeout)
+	}
+	e.transportConfiguration = t
+}
+
+func assignEntryPointTransportForStatic(r *dynamic.Router, e *static.EntryPoint) {
+	t := parseEntryPoint(r)
+	if t == nil {
+		e.Transport.SetDefaults()
+		return
+	}
+	e.Transport = t
+}
+
+func parseEntryPoint(r *dynamic.Router) *static.EntryPointsTransport {
+	if r.EntryPointTransport == "" {
+		return nil
+	}
+
+	logger := log.WithoutContext()
+	t := &static.EntryPointsTransport{}
+	if err := json.Unmarshal([]byte(r.EntryPointTransport), t); err != nil {
+		logger.Warn("parse entrypoint transport failed: ", "transport is: ", r.EntryPointTransport, "error is: ", err.Error())
+		return nil
+	}
+
+	res := &static.EntryPointsTransport{}
+	res.SetDefaults()
+
+	if t.RespondingTimeouts.IdleTimeout != 0 {
+		res.RespondingTimeouts.IdleTimeout = t.RespondingTimeouts.IdleTimeout
+	}
+
+	if t.RespondingTimeouts.ReadTimeout != 0 {
+		res.RespondingTimeouts.ReadTimeout = t.RespondingTimeouts.ReadTimeout
+	}
+
+	if t.RespondingTimeouts.WriteTimeout != 0 {
+		res.RespondingTimeouts.WriteTimeout = t.RespondingTimeouts.WriteTimeout
+	}
+	return res
 }
 
 func buildEntryPoint(ep string) (e *static.EntryPoint, ok bool) {
